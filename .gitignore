@@ -1,0 +1,12 @@
+.vs/
+.vscode/
+.idea/
+.fleet/
+.zed/
+.ignore/
+
+build/
+target/
+node_modules/
+
+*.env

@@ -1,0 +1,155 @@
+services:
+  balance-app:
+    build:
+      context: .
+      dockerfile: cmd/balance/Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      ADDR: ${ADDR:-:8080}
+      DB: ${DB:-postgres://postgres:secure_password@postgres:5432/balance_app?sslmode=disable}
+    ports:
+      - "8080:8080"
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: "1"
+        reservations:
+          memory: 512M
+          cpus: "0.5"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://localhost:8080/health",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  client:
+    build:
+      context: .
+      dockerfile: cmd/client/Dockerfile
+    depends_on:
+      balance-app:
+        condition: service_healthy
+    environment:
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      ADDR: http://balance-app:8080
+      DB: ${DB:-postgres://postgres:secure_password@postgres:5432/balance_app?sslmode=disable}
+      CREATE_INTERVAL: ${CREATE_INTERVAL:-5s}
+      CREATE_COUNT: ${CREATE_COUNT:-10}
+      CREATE_AMOUNT: ${CREATE_AMOUNT:-10000}
+      CANCEL_INTERVAL: ${CANCEL_INTERVAL:-10s}
+      CANCEL_COUNT: ${CANCEL_COUNT:-5}
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "0.5"
+        reservations:
+          memory: 128M
+          cpus: "0.1"
+
+  migrate:
+    image: migrate/migrate:4
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./db/migrations:/migrations:ro
+    environment:
+      DB: ${DB:-postgres://postgres:secure_password@postgres:5432/balance_app?sslmode=disable}
+    command: >
+      -path=/migrations
+      -database="${DB:-postgres://postgres:secure_password@postgres:5432/balance_app?sslmode=disable}"
+      up
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.25"
+        reservations:
+          memory: 64M
+          cpus: "0.1"
+      restart_policy:
+        condition: on-failure
+        max_attempts: 3
+
+  grpcui:
+    image: fullstorydev/grpcui:v1.4.3
+    depends_on:
+      balance-app:
+        condition: service_healthy
+    ports:
+      - "8081:8081"
+    environment:
+      GRPC_SERVER: balance-app:8080
+    command: >
+      -bind=0.0.0.0
+      -port=8081
+      -plaintext
+      balance-app:8080
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.5"
+        reservations:
+          memory: 64M
+          cpus: "0.1"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://localhost:8080/",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-secure_password}
+      POSTGRES_DB: ${POSTGRES_DB:-balance_app}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres_data:/var/lib/postgresql/data:rw
+      - ./config/postgresql.conf:/etc/postgresql/postgresql.conf:ro
+    ports:
+      - "5432:5432"
+    command: postgres -c 'config_file=/etc/postgresql/postgresql.conf'
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: "1"
+        reservations:
+          memory: 512M
+          cpus: "0.5"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
