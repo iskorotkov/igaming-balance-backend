@@ -16,7 +16,7 @@ permissions:
 
 concurrency:
   cancel-in-progress: true
-  group: go-${{ github.branch }}
+  group: go-${{ github.ref }}
 
 jobs:
   build:
