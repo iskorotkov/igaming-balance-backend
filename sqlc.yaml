@@ -1,0 +1,50 @@
+# See docs https://docs.sqlc.dev/en/latest/tutorials/getting-started-postgresql.html
+version: "2"
+sql:
+  - engine: "postgresql"
+    queries: "db/query.sql"
+    schema: "db/migrations"
+    gen:
+      go:
+        package: "db"
+        out: "internal/db"
+        sql_package: "pgx/v5"
+        overrides:
+          - db_type: timestamptz
+            go_type:
+              import: "time"
+              type: "Time"
+          - db_type: timestamptz
+            nullable: true
+            go_type:
+              import: "time"
+              type: "Time"
+              pointer: true
+          - db_type: "uuid"
+            go_type:
+              import: "github.com/google/uuid"
+              type: "UUID"
+          - db_type: "numeric"
+            go_type:
+              import: "github.com/shopspring/decimal"
+              type: "Decimal"
+          - db_type: "decimal"
+            go_type:
+              import: "github.com/shopspring/decimal"
+              type: "Decimal"
+          - column: txs.amount
+            go_type:
+              import: "github.com/shopspring/decimal"
+              type: "Decimal"
+          - column: txs.source
+            go_type:
+              import: "github.com/iskorotkov/igaming-balance-backend/internal/domain"
+              type: "Source"
+          - column: txs.state
+            go_type:
+              import: "github.com/iskorotkov/igaming-balance-backend/internal/domain"
+              type: "State"
+          - column: balances.amount
+            go_type:
+              import: "github.com/shopspring/decimal"
+              type: "Decimal"

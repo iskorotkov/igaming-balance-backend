@@ -1,0 +1,73 @@
+syntax = "proto3";
+
+package balance.v1;
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/empty.proto";
+
+enum Source {
+  SOURCE_UNSPECIFIED = 0;
+  SOURCE_GAME = 1;
+  SOURCE_PAYMENT = 2;
+  SOURCE_SERVICE = 3;
+}
+
+enum State {
+  STATE_UNSPECIFIED = 0;
+  STATE_DEPOSIT = 1;
+  STATE_WITHDRAW = 2;
+}
+
+message Decimal { string value = 1; }
+
+message Tx {
+  google.protobuf.Timestamp created_at = 1;
+  google.protobuf.Timestamp deleted_at = 2;
+  string tx_id = 3;
+  string balance_id = 4;
+  Source source = 5;
+  State state = 6;
+  Decimal amount = 7;
+}
+
+message RecordTxRequest {
+  string balance_id = 1;
+  Source source = 2;
+  State state = 3;
+  Decimal amount = 4;
+  string tx_id = 5;
+}
+
+message CancelTxsRequest {
+  string balance_id = 1;
+  repeated string tx_ids = 2;
+}
+
+message ListTxRequest {
+  string balance_id = 1;
+  bool include_deleted = 2;
+  int32 page_size = 3;
+  string page_token = 4;
+}
+
+message ListTxResponse {
+  repeated Tx txs = 1;
+  string next_page_token = 2;
+}
+
+message OpenBalanceRequest { string balance_id = 1; }
+
+message BalanceRequest { string balance_id = 1; }
+
+message BalanceResponse {
+  string balance_id = 1;
+  Decimal amount = 2;
+}
+
+service BalanceService {
+  rpc RecordTx(RecordTxRequest) returns (google.protobuf.Empty) {}
+  rpc CancelTxs(CancelTxsRequest) returns (google.protobuf.Empty) {}
+  rpc ListTx(ListTxRequest) returns (ListTxResponse) {}
+  rpc OpenBalance(OpenBalanceRequest) returns (google.protobuf.Empty) {}
+  rpc Balance(BalanceRequest) returns (BalanceResponse) {}
+}
